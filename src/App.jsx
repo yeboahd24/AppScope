@@ -19,7 +19,6 @@ const supabase = {
     },
     select: async (columns = "*", options = {}) => {
       let url = `${SUPABASE_URL}/rest/v1/${table}?select=${columns}`;
-      if (options.count) url += `&${options.count}`;
       const headers = { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` };
       if (options.count) headers["Prefer"] = "count=exact";
       const res = await fetch(url, { headers });
@@ -108,13 +107,14 @@ export default function AppScope() {
   useEffect(() => {
     const fetchCount = async () => {
       try {
-        const { data, count } = await supabase.from("waitlist").select("*", { count: "count=exact" });
+        const { data, count } = await supabase.from("waitlist").select("*", { count: true });
+        console.log("Fetched count:", count);
         if (count !== undefined) {
           setWaitlistCount(count);
           setDbConnected(true);
         }
       } catch (e) {
-        console.log("Supabase not connected yet — using demo mode");
+        console.log("Supabase not connected yet — using demo mode", e);
         setWaitlistCount(247); // fallback demo count
       }
     };
