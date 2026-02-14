@@ -108,7 +108,7 @@ export default function AppScope() {
   useEffect(() => {
     const fetchCount = async () => {
       try {
-        const { data, count } = await supabase.from("waitlist").select("id", { count: "count=exact" });
+        const { data, count } = await supabase.from("waitlist").select("*", { count: "count=exact" });
         if (count !== undefined) {
           setWaitlistCount(count);
           setDbConnected(true);
