@@ -27,6 +27,7 @@
     {
       "matches": [
         "https://*.github.io/*",
+        "https://*.onrender.com/*",
         "http://localhost:*/*"
       ],
       "js": ["auth-bridge.js"],
