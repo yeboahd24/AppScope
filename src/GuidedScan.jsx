@@ -352,15 +352,15 @@ export default function GuidedScan({ session, onComplete }) {
                   lineHeight: 1.8,
                 }}>
                   <strong style={{ color: "#333" }}>Quick Install:</strong><br />
-                  1. Download the extension from our GitHub<br />
-                  2. Open <code style={{ background: "#f0f0f0", padding: "1px 6px", borderRadius: "4px", fontSize: "11px" }}>chrome://extensions</code><br />
-                  3. Enable "Developer mode" (top right toggle)<br />
-                  4. Click "Load unpacked" and select the <code style={{ background: "#f0f0f0", padding: "1px 6px", borderRadius: "4px", fontSize: "11px" }}>extension</code> folder
+                  1. Click "Download Extension" below<br />
+                  2. Unzip the downloaded file<br />
+                  3. Open <code style={{ background: "#f0f0f0", padding: "1px 6px", borderRadius: "4px", fontSize: "11px" }}>chrome://extensions</code><br />
+                  4. Enable "Developer mode" (top right toggle)<br />
+                  5. Click "Load unpacked" → select the <code style={{ background: "#f0f0f0", padding: "1px 6px", borderRadius: "4px", fontSize: "11px" }}>extension</code> folder
                 </div>
                 <a
-                  href="https://github.com/yeboahd24/AppScope/tree/main/extension"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="/appscope-extension.zip"
+                  download="appscope-extension.zip"
                   style={{
                     display: "block",
                     textAlign: "center",
@@ -374,7 +374,7 @@ export default function GuidedScan({ session, onComplete }) {
                     boxShadow: "0 4px 16px rgba(101,31,255,0.25)",
                   }}
                 >
-                  Download Extension from GitHub &#x2197;
+                  Download Extension (.zip)
                 </a>
                 <p style={{ margin: "8px 0 0", fontSize: "11px", color: "#999", textAlign: "center" }}>
                   We'll notify you when it's live on the Chrome Web Store.
