@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AppScope</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="popup">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-title">
+        <span class="logo">&#x1f510;</span>
+        <h1>AppScope</h1>
+      </div>
+      <span class="version">v1.0</span>
+    </div>
+
+    <!-- Loading state -->
+    <div id="loading" class="state">
+      <div class="spinner"></div>
+    </div>
+
+    <!-- Not signed in state -->
+    <div id="not-signed-in" class="state hidden">
+      <div class="icon-large">&#x1f512;</div>
+      <h2>Sign in first</h2>
+      <p>Sign in to the AppScope web app to connect your account.</p>
+      <a href="https://appscope.dev" target="_blank" class="btn btn-primary">
+        Open AppScope &#x2197;
+      </a>
+      <p class="hint">After signing in, return here to scan.</p>
+    </div>
+
+    <!-- Signed in / ready state -->
+    <div id="signed-in" class="state hidden">
+      <div class="user-info">
+        <div class="user-avatar" id="user-avatar"></div>
+        <div class="user-details">
+          <div class="user-email" id="user-email"></div>
+          <div class="user-status">Connected</div>
+        </div>
+      </div>
+
+      <!-- Last scan info -->
+      <div id="last-scan-info" class="scan-info hidden">
+        <div class="scan-stat">
+          <span class="scan-stat-number" id="app-count">0</span>
+          <span class="scan-stat-label">Apps Found</span>
+        </div>
+        <div class="scan-stat">
+          <span class="scan-stat-number" id="last-scan-time">—</span>
+          <span class="scan-stat-label">Last Scan</span>
+        </div>
+      </div>
+
+      <!-- Scan button -->
+      <button id="scan-btn" class="btn btn-primary btn-scan">
+        &#x1f50d; Scan Now
+      </button>
+
+      <!-- Scanning state -->
+      <div id="scanning" class="hidden">
+        <div class="spinner"></div>
+        <p class="scanning-text">Scanning your Google permissions...</p>
+      </div>
+
+      <!-- Scan result -->
+      <div id="scan-result" class="hidden">
+        <div class="result-icon">&#x2705;</div>
+        <p class="result-text" id="result-text"></p>
+      </div>
+
+      <!-- Dashboard link -->
+      <a href="https://appscope.dev" target="_blank" class="btn btn-secondary" id="dashboard-link">
+        Open Dashboard &#x2197;
+      </a>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,40 +1,7 @@
 import { useState, useEffect } from "react";
-
-// ============================================
-// 🔧 SUPABASE CONFIG — Replace with your credentials
-// ============================================
-const SUPABASE_URL = "https://xfprwyojsobfvygqogrx.supabase.co";
-const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmcHJ3eW9qc29iZnZ5Z3FvZ3J4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwMTczMTgsImV4cCI6MjA4NjU5MzMxOH0.AlkVkZVGvm8YHms9UU1LeSvNYZpUylKa_9Kh8TVk3Wc"
-// Simple Supabase client (no SDK needed)
-const supabase = {
-  from: (table) => ({
-    insert: async (data) => {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-        method: "POST", headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, Prefer: "return=representation" },
-        body: JSON.stringify(data)
-      });
-      if (!res.ok) { const err = await res.json(); return { data: null, error: err }; }
-      const d = await res.json();
-      return { data: d, error: null };
-    },
-    select: async (columns = "*", options = {}) => {
-      let url = `${SUPABASE_URL}/rest/v1/${table}?select=${columns}`;
-      const headers = { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` };
-      if (options.count) headers["Prefer"] = "count=exact";
-      const res = await fetch(url, { headers });
-      const count = res.headers.get("content-range");
-      const d = await res.json();
-      return { data: d, error: null, count: count ? parseInt(count.split("/")[1]) : d.length };
-    },
-    selectWhere: async (column, value) => {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${column}=eq.${encodeURIComponent(value)}`, {
-        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
-      });
-      const d = await res.json();
-      return { data: d, error: null };
-    }
-  })
-};
+import { supabase } from "./supabaseClient";
+import GuidedScan from "./GuidedScan";
+import Dashboard from "./Dashboard";
 
 const mockAccounts = [
   {
@@ -88,6 +55,11 @@ export default function AppScope() {
   const [toast, setToast] = useState(null);
   const [animIn, setAnimIn] = useState(false);
 
+  // Auth state
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authPage, setAuthPage] = useState(null); // "scan" | "dashboard" | null
+
   // Waitlist state
   const [waitlistEmail, setWaitlistEmail] = useState("");
   const [waitlistName, setWaitlistName] = useState("");
@@ -103,13 +75,49 @@ export default function AppScope() {
 
   useEffect(() => { setTimeout(() => setAnimIn(true), 100); }, []);
 
+  // Auth listener
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      setSession(s);
+      setAuthLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+      setAuthLoading(false);
+      if (s) {
+        // Check if user has apps to decide scan vs dashboard
+        supabase
+          .from("user_apps")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", s.user.id)
+          .eq("is_revoked", false)
+          .then(({ count }) => {
+            setAuthPage(count > 0 ? "dashboard" : "scan");
+          });
+      } else {
+        setAuthPage(null);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSignIn = async () => {
+    await supabase.auth.signInWithOAuth({ provider: "google" });
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    setAuthPage(null);
+    setPage("landing");
+  };
+
   // Fetch waitlist count from Supabase on mount
   useEffect(() => {
     const fetchCount = async () => {
       try {
-        const { data, count } = await supabase.from("waitlist").select("*", { count: true });
-        console.log("Fetched count:", count);
-        if (count !== undefined) {
+        const { count, error } = await supabase.from("waitlist").select("*", { count: "exact", head: true });
+        if (!error && count !== null) {
           setWaitlistCount(count);
           setDbConnected(true);
         }
@@ -173,7 +181,7 @@ export default function AppScope() {
 
     try {
       // Check if email already exists
-      const { data: existing } = await supabase.from("waitlist").selectWhere("email", waitlistEmail.toLowerCase());
+      const { data: existing } = await supabase.from("waitlist").select("*").eq("email", waitlistEmail.toLowerCase());
 
       if (existing && existing.length > 0) {
         setEmailError("This email is already on the waitlist!");
@@ -182,7 +190,7 @@ export default function AppScope() {
       }
 
       // Insert into Supabase
-      const { data, error } = await supabase.from("waitlist").insert({
+      const { error } = await supabase.from("waitlist").insert({
         name: waitlistName.trim(),
         email: waitlistEmail.toLowerCase().trim(),
         gmail_count: gmailCount,
@@ -384,6 +392,53 @@ export default function AppScope() {
     </div>
   );
 
+  // ========== AUTH LOADING ==========
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#0a0a1a", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+        <div style={{ textAlign: "center", color: "white" }}>
+          <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔐</div>
+          <div style={{ width: "32px", height: "32px", border: "3px solid rgba(255,255,255,0.2)", borderTopColor: "#4285F4", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto" }} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      </div>
+    );
+  }
+
+  // ========== AUTHENTICATED: GUIDED SCAN ==========
+  if (session && authPage === "scan") {
+    return (
+      <GuidedScan
+        session={session}
+        onComplete={() => setAuthPage("dashboard")}
+      />
+    );
+  }
+
+  // ========== AUTHENTICATED: DASHBOARD ==========
+  if (session && authPage === "dashboard") {
+    return (
+      <Dashboard
+        session={session}
+        onSignOut={handleSignOut}
+        onScanAgain={() => setAuthPage("scan")}
+      />
+    );
+  }
+
+  // ========== AUTHENTICATED: WAITING FOR AUTH PAGE DECISION ==========
+  if (session && !authPage) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#0a0a1a", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+        <div style={{ textAlign: "center", color: "white" }}>
+          <div style={{ fontSize: "48px", marginBottom: "16px" }}>&#x1f510;</div>
+          <div style={{ width: "32px", height: "32px", border: "3px solid rgba(255,255,255,0.2)", borderTopColor: "#4285F4", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto" }} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      </div>
+    );
+  }
+
   // ========== LANDING PAGE ==========
   if (page === "landing") {
     const problems = [
@@ -411,9 +466,14 @@ export default function AppScope() {
             <span style={{ fontSize: "24px" }}>🔐</span>
             <span style={{ fontWeight: 800, fontSize: "18px" }}>AppScope</span>
           </div>
-          <button onClick={() => setShowWaitlistModal(true)} style={{ background: "linear-gradient(135deg, #4285F4, #2962FF)", border: "none", color: "white", padding: "10px 22px", borderRadius: "24px", cursor: "pointer", fontSize: "13px", fontWeight: 700, boxShadow: "0 4px 16px rgba(66,133,244,0.3)" }}>
-            Join Waitlist
-          </button>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <button onClick={handleSignIn} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "white", padding: "10px 18px", borderRadius: "24px", cursor: "pointer", fontSize: "13px", fontWeight: 700 }}>
+              Sign In
+            </button>
+            <button onClick={() => setShowWaitlistModal(true)} style={{ background: "linear-gradient(135deg, #4285F4, #2962FF)", border: "none", color: "white", padding: "10px 22px", borderRadius: "24px", cursor: "pointer", fontSize: "13px", fontWeight: 700, boxShadow: "0 4px 16px rgba(66,133,244,0.3)" }}>
+              Join Waitlist
+            </button>
+          </div>
         </div>
 
         {/* Waitlist banner */}
@@ -442,14 +502,14 @@ export default function AppScope() {
             Multiple Gmail accounts? See every connected app, spot risky permissions, and revoke access — all from one place.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "12px", maxWidth: "320px", margin: "0 auto" }}>
-            <button onClick={() => setShowWaitlistModal(true)} style={{ background: "linear-gradient(135deg, #4285F4, #2962FF)", border: "none", color: "white", padding: "16px 40px", borderRadius: "16px", fontSize: "16px", fontWeight: 800, cursor: "pointer", boxShadow: "0 8px 32px rgba(66,133,244,0.4)" }}>
-              Join the Waitlist — It's Free
+            <button onClick={handleSignIn} style={{ background: "linear-gradient(135deg, #4285F4, #2962FF)", border: "none", color: "white", padding: "16px 40px", borderRadius: "16px", fontSize: "16px", fontWeight: 800, cursor: "pointer", boxShadow: "0 8px 32px rgba(66,133,244,0.4)", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px" }}>
+              <span style={{ fontSize: "18px" }}>G</span> Sign In with Google — Free
             </button>
             <button onClick={() => setPage("onboarding")} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.7)", padding: "14px 40px", borderRadius: "16px", fontSize: "14px", fontWeight: 600, cursor: "pointer" }}>
               Try Live Demo →
             </button>
           </div>
-          <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.3)", marginTop: "14px" }}>No credit card required • Launching soon</p>
+          <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.3)", marginTop: "14px" }}>No credit card required • Free forever for 1 account</p>
         </div>
 
         {/* Dashboard Preview */}
@@ -565,8 +625,8 @@ export default function AppScope() {
             <h2 style={{ fontSize: "24px", fontWeight: 900, margin: "0 0 8px" }}>Ready to take control?</h2>
             <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "14px", margin: "0 0 6px" }}>Find out what has access to your email.</p>
             <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "13px", margin: "0 0 24px" }}>Join <strong style={{ color: "#4285F4" }}>{displayCount}+</strong> others on the waitlist</p>
-            <button onClick={() => setShowWaitlistModal(true)} style={{ background: "linear-gradient(135deg, #4285F4, #2962FF)", border: "none", color: "white", padding: "16px 40px", borderRadius: "16px", fontSize: "16px", fontWeight: 800, cursor: "pointer", boxShadow: "0 8px 32px rgba(66,133,244,0.4)", width: "100%", maxWidth: "320px" }}>
-              Join Waitlist
+            <button onClick={handleSignIn} style={{ background: "linear-gradient(135deg, #4285F4, #2962FF)", border: "none", color: "white", padding: "16px 40px", borderRadius: "16px", fontSize: "16px", fontWeight: 800, cursor: "pointer", boxShadow: "0 8px 32px rgba(66,133,244,0.4)", width: "100%", maxWidth: "320px" }}>
+              Get Started Free
             </button>
           </div>
         </div>
