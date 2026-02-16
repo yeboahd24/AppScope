@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "WebSearch",
+      "Bash(python3:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run lint:*)",
+      "WebFetch(domain:gist.github.com)",
+      "Bash(zip:*)",
+      "Bash(tar:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
